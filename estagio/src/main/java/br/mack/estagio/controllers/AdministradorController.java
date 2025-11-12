@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.mack.estagio.entities.Administrador;
-import br.mack.estagio.dtos.VagasPorAreaDTO;
 import br.mack.estagio.repositories.AdministradorRepository;
 import br.mack.estagio.repositories.EmpresaRepository;
 import br.mack.estagio.repositories.EstudanteRepository;
@@ -102,12 +101,6 @@ public class AdministradorController {
         stats.put("vagasAbertas", vagaEstagioRepository.countByStatus("ABERTA"));
         stats.put("vagasEncerradas", vagaEstagioRepository.countByStatus("ENCERRADA"));
         return stats;
-    }
-
-    // REGRA 2: (Requisito 9) - Endpoint para dados do gráfico de vagas por área.
-    @GetMapping("/dashboard/vagas-por-area")
-    public List<VagasPorAreaDTO> getVagasPorArea() {
-        return vagaEstagioRepository.countVagasByArea();
     }
 
 }

@@ -1,9 +1,13 @@
 package br.mack.estagio.controllers;
 
 import br.mack.estagio.entities.VagaEstagio;
+import br.mack.estagio.entities.Empresa;
 import br.mack.estagio.repositories.VagaEstagioRepository;
+import br.mack.estagio.repositories.EmpresaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,18 +26,30 @@ public class VagaEstagioController {
     @Autowired
     private VagaEstagioRepository repository;
 
+    @Autowired
+    private EmpresaRepository empresaRepository;
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Cria uma nova vaga de estágio", description = "Cria uma nova vaga. O sistema associará a vaga à empresa autenticada. O status inicial será 'ABERTA'.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Vaga criada com sucesso"),
             @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA'.")
+            @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA' ou não corresponde a uma empresa cadastrada.")
     })
     public VagaEstagio criar(@RequestBody VagaEstagio novaVaga) {
-        if (novaVaga.getTitulo() == null || novaVaga.getTitulo().isEmpty() ||
-            novaVaga.getEmpresa() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Título e Empresa são obrigatórios");
+        if (novaVaga.getTitulo() == null || novaVaga.getTitulo().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O título da vaga é obrigatório.");
         }
+
+        // Pega o email da empresa logada a partir do contexto de segurança
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        Empresa empresaLogada = empresaRepository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
+
+        // Associa a vaga à empresa que está autenticada, garantindo a segurança.
+        novaVaga.setEmpresa(empresaLogada);
         // REGRA 1: (Requisito 5) - Garante que toda nova vaga comece com o status "ABERTA".
         novaVaga.setStatus("ABERTA");
 

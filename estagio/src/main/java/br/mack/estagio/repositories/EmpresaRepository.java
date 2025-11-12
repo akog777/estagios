@@ -8,5 +8,4 @@ import br.mack.estagio.entities.Empresa;
 
 public interface EmpresaRepository extends CrudRepository<Empresa, Long>{
     List<Empresa> findByNome(String nome);
-    Optional<Empresa> findByEmail(String email);
 }

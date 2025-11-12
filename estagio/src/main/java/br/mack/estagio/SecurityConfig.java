@@ -24,7 +24,7 @@ public class SecurityConfig {
         return http
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration configuration = new CorsConfiguration();
-                    configuration.addAllowedOrigin("http://localhost:5173"); // Porta padrão do Vite
+                    configuration.addAllowedOrigin("http://localhost:3000"); // Porta padrão do Next.js
                     configuration.addAllowedMethod("*");
                     configuration.addAllowedHeader("*");
                     return configuration;
