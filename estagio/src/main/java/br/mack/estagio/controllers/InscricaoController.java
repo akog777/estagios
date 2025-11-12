@@ -8,15 +8,19 @@ import br.mack.estagio.repositories.InscricaoRepository;
 import br.mack.estagio.repositories.VagaEstagioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/inscricoes")
+@Tag(name = "Inscrições", description = "Endpoints para estudantes se inscreverem em vagas")
 public class InscricaoController {
 
     @Autowired
@@ -30,15 +34,18 @@ public class InscricaoController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Realiza a inscrição de um estudante em uma vaga", description = "Cria uma inscrição para o estudante autenticado na vaga especificada. O ID do estudante é obtido do token de segurança.")
     public Inscricao criar(@RequestBody Inscricao novaInscricao) {
-        if (novaInscricao.getEstudante() == null || novaInscricao.getEstudante().getId() == null ||
-            novaInscricao.getVagaEstagio() == null || novaInscricao.getVagaEstagio().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ID do Estudante e da Vaga são obrigatórios");
+        if (novaInscricao.getVagaEstagio() == null || novaInscricao.getVagaEstagio().getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O ID da Vaga é obrigatório");
         }
 
-        // Valida se as entidades relacionadas existem
-        Estudante estudante = estudanteRepository.findById(novaInscricao.getEstudante().getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Estudante não encontrado"));
+        // Pega o estudante logado a partir do contexto de segurança
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        Estudante estudanteLogado = estudanteRepository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhum estudante."));
+
         VagaEstagio vaga = vagaEstagioRepository.findById(novaInscricao.getVagaEstagio().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga não encontrada"));
 
@@ -49,11 +56,11 @@ public class InscricaoController {
         }
 
         // REGRA 2: Impede que um estudante se inscreva duas vezes na mesma vaga.
-        if (repository.existsByEstudanteIdAndVagaEstagioId(estudante.getId(), vaga.getId())) {
+        if (repository.existsByEstudanteIdAndVagaEstagioId(estudanteLogado.getId(), vaga.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Você já se inscreveu para esta vaga.");
         }
 
-        novaInscricao.setEstudante(estudante);
+        novaInscricao.setEstudante(estudanteLogado);
         novaInscricao.setVagaEstagio(vaga);
         novaInscricao.setDataInscricao(new Date()); // Define a data da inscrição
 
@@ -61,17 +68,20 @@ public class InscricaoController {
     }
 
     @GetMapping
+    @Operation(summary = "Lista todas as inscrições (Admin)", description = "Retorna uma lista de todas as inscrições. Acesso restrito a administradores.")
     public List<Inscricao> lerTudo() {
         return (List<Inscricao>) repository.findAll();
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Busca uma inscrição por ID (Admin)", description = "Retorna os detalhes de uma inscrição específica. Acesso restrito a administradores.")
     public Inscricao lerPorId(@PathVariable Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada"));
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Atualiza o status de uma inscrição (Admin)", description = "Permite que um administrador atualize o status de uma inscrição (ex: 'EM_PROCESSO', 'APROVADO').")
     public Inscricao atualizar(@PathVariable Long id, @RequestBody Inscricao inscricaoAtualizada) {
         Inscricao inscricao = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada"));
@@ -85,6 +95,7 @@ public class InscricaoController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Cancela uma inscrição", description = "Permite que um estudante cancele sua própria inscrição em uma vaga.")
     public void apagar(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada");

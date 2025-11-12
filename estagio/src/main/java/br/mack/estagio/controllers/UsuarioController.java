@@ -24,9 +24,9 @@ public class UsuarioController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Usuario criar(@RequestBody Usuario novoUsuario) {
-        if (novoUsuario.getLogin() == null || novoUsuario.getLogin().isEmpty() ||
+        if (novoUsuario.getEmail() == null || novoUsuario.getEmail().isEmpty() ||
             novoUsuario.getSenha() == null || novoUsuario.getSenha().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Login e Senha são obrigatórios");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email e Senha são obrigatórios");
         }
         // REGRA: Criptografando a senha antes de salvar
         String senhaCriptografada = passwordEncoder.encode(novoUsuario.getSenha());
@@ -37,7 +37,7 @@ public class UsuarioController {
     @PostMapping("/login")
     public Usuario login(@RequestBody Usuario dadosLogin) {
         // 1. Busca o usuário pelo login.
-        Usuario usuario = repository.findByLogin(dadosLogin.getLogin())
+        Usuario usuario = repository.findByEmail(dadosLogin.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas"));
 
         // 2. Usa o passwordEncoder para verificar se a senha enviada corresponde à senha criptografada no banco.
@@ -73,7 +73,7 @@ public class UsuarioController {
         Optional<Usuario> optional = repository.findById(id);
         if (optional.isPresent()) {
             Usuario usuario = optional.get();
-            usuario.setLogin(usuarioAtualizado.getLogin());
+            usuario.setEmail(usuarioAtualizado.getEmail());
             // Criptografa a senha apenas se ela foi alterada
             if (usuarioAtualizado.getSenha() != null && !usuarioAtualizado.getSenha().isEmpty()) {
                 String senhaCriptografada = passwordEncoder.encode(usuarioAtualizado.getSenha());

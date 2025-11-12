@@ -1,11 +1,10 @@
 package br.mack.estagio.repositories;
 
-import java.util.Optional;
-
+import br.mack.estagio.entities.Usuario;
 import org.springframework.data.repository.CrudRepository;
 
-import br.mack.estagio.entities.Usuario;
+import java.util.Optional;
 
 public interface UsuarioRepository extends CrudRepository<Usuario, Long> {
-    Optional<Usuario> findByLogin(String login);
+    Optional<Usuario> findByEmail(String email);
 }

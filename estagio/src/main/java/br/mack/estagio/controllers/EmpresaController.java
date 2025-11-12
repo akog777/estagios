@@ -1,86 +1,95 @@
 package br.mack.estagio.controllers;
 
-import java.util.*;
-
+import br.mack.estagio.entities.Empresa;
+import br.mack.estagio.entities.Usuario;
+import br.mack.estagio.repositories.EmpresaRepository;
+import br.mack.estagio.repositories.UsuarioRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import br.mack.estagio.entities.Empresa;
-import br.mack.estagio.repositories.EmpresaRepository;
+import java.util.List;
 
 @RestController
 @RequestMapping("/empresas")
+@Tag(name = "Empresas", description = "Endpoints para cadastro e gerenciamento de empresas")
 public class EmpresaController {
-    @Autowired
-    private EmpresaRepository repository;
 
-    //CREATE
-    @PostMapping
-    public Empresa criarEmpresa(@RequestBody Empresa novaEmpresa) {
-        if (novaEmpresa.getNome() == null || novaEmpresa.getNome().isEmpty() ||
-            novaEmpresa.getCnpj() == null || novaEmpresa.getCnpj().isEmpty() ||
-            novaEmpresa.getEmail() == null || novaEmpresa.getEmail().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome, CNPJ e Email são obrigatórios");
+    @Autowired
+    private EmpresaRepository empresaRepository;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @PostMapping("/registrar")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Registra uma nova empresa no sistema", description = "Cria um usuário com perfil 'EMPRESA' e associa a uma nova entidade Empresa com todos os seus dados.")
+    public Empresa registrar(@RequestBody Empresa novaEmpresa) {
+        // Validação básica
+        if (novaEmpresa.getUsuario() == null || novaEmpresa.getUsuario().getSenha() == null || novaEmpresa.getUsuario().getEmail() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email e senha são obrigatórios para o registro.");
         }
-        return repository.save(novaEmpresa);
+        if (usuarioRepository.findByEmail(novaEmpresa.getUsuario().getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O e-mail informado já está em uso.");
+        }
+
+        // 1. Cria e salva o Usuário
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setEmail(novaEmpresa.getUsuario().getEmail());
+        novoUsuario.setSenha(passwordEncoder.encode(novaEmpresa.getUsuario().getSenha()));
+        novoUsuario.setRole("ROLE_EMPRESA");
+        Usuario usuarioSalvo = usuarioRepository.save(novoUsuario);
+
+        novaEmpresa.setEmail(usuarioSalvo.getEmail());
+        // 2. Associa o usuário salvo à empresa e salva a empresa
+        novaEmpresa.setUsuario(usuarioSalvo);
+        return empresaRepository.save(novaEmpresa);
     }
 
-    //READ
+    @GetMapping("/me")
+    @Operation(summary = "Busca o perfil da empresa logada", description = "Retorna os dados cadastrais da empresa que está autenticada.")
+    public Empresa getMyProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+
+        return empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil de empresa não encontrado para o usuário logado."));
+    }
+
+    @PutMapping("/me")
+    @Operation(summary = "Atualiza o perfil da empresa logada", description = "Permite que a empresa autenticada atualize seus dados cadastrais.")
+    public Empresa updateMyProfile(@RequestBody Empresa empresaAtualizada) {
+        Empresa empresa = getMyProfile(); // Reutiliza o método acima para buscar a empresa logada
+
+        // Atualiza os campos permitidos
+        empresa.setNome(empresaAtualizada.getNome());
+        empresa.setCnpj(empresaAtualizada.getCnpj());
+        empresa.setTelefone(empresaAtualizada.getTelefone());
+        empresa.setEndereco(empresaAtualizada.getEndereco());
+        empresa.setAreasAtuacao(empresaAtualizada.getAreasAtuacao());
+
+        return empresaRepository.save(empresa);
+    }
+
     @GetMapping
-    public List<Empresa> lerTodasEmpresas(@RequestParam(name="nome", required=false) String nome) {
-        if(nome == null) {
-            return (List<Empresa>) repository.findAll();
-        }
-        return repository.findByNome(nome);
+    @Operation(summary = "Lista todas as empresas (Admin)", description = "Retorna uma lista de todas as empresas cadastradas. Acesso restrito a administradores.")
+    public List<Empresa> listarTodas() {
+        return (List<Empresa>) empresaRepository.findAll();
     }
 
     @GetMapping("/{id}")
-    public Empresa lerEmpresaPeloId(@PathVariable long id) {
-        Optional<Empresa> optional = repository.findById(id);
-        if (optional.isPresent()) {
-            return optional.get();
-        }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada");
+    @Operation(summary = "Busca empresa por ID (Admin)", description = "Retorna os dados de uma empresa específica. Acesso restrito a administradores.")
+    public Empresa buscarPorId(@PathVariable Long id) {
+        return empresaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada"));
     }
-
-    //UPDATE
-    @PutMapping("/{id}")
-    public Empresa atualizarEmpresaPeloId(
-        @RequestBody Empresa novosDados, 
-        @PathVariable long id) {
-        
-        Optional<Empresa> optional = repository.findById(id);
-        if (optional.isPresent()) {
-            Empresa empresa = optional.get();
-            empresa.setNome(novosDados.getNome());
-            empresa.setCnpj(novosDados.getCnpj());
-            empresa.setEmail(novosDados.getEmail());
-            empresa.setTelefone(novosDados.getTelefone());
-            empresa.setEndereco(novosDados.getEndereco());
-            empresa.setAreasAtuacao(novosDados.getAreasAtuacao());
-            return repository.save(empresa);
-        }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada");
-    }
-
-    //DELETE
-    @DeleteMapping("/{id}")
-    public void apagarPeloId(@PathVariable long id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada");
-        }
-        repository.deleteById(id);
-    }
-
-
 }

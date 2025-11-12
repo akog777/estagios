@@ -1,5 +1,6 @@
 package br.mack.estagio.controllers;
 
+import br.mack.estagio.entities.Estudante;
 import br.mack.estagio.entities.VagaEstagio;
 import br.mack.estagio.entities.Empresa;
 import br.mack.estagio.repositories.VagaEstagioRepository;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 @RestController
@@ -37,6 +39,7 @@ public class VagaEstagioController {
             @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA'."),
             @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA' ou não corresponde a uma empresa cadastrada.")
     })
+
     public VagaEstagio criar(@RequestBody VagaEstagio novaVaga) {
         if (novaVaga.getTitulo() == null || novaVaga.getTitulo().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O título da vaga é obrigatório.");
@@ -45,7 +48,7 @@ public class VagaEstagioController {
         // Pega o email da empresa logada a partir do contexto de segurança
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String emailUsuarioLogado = authentication.getName();
-        Empresa empresaLogada = empresaRepository.findByEmail(emailUsuarioLogado)
+        Empresa empresaLogada = empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
 
         // Associa a vaga à empresa que está autenticada, garantindo a segurança.
@@ -119,5 +122,32 @@ public class VagaEstagioController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada");
         }
         repository.deleteById(id);
+    }
+
+    // REGRA: (Requisito 7) - Endpoint para a empresa logada ver os candidatos de uma vaga.
+    @GetMapping("/{id}/candidatos")
+    @Operation(summary = "Lista os candidatos de uma vaga", description = "Retorna a lista de estudantes que se inscreveram em uma vaga específica. Apenas a empresa dona da vaga pode acessar.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Candidatos listados com sucesso"),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Você não é o dono desta vaga."),
+            @ApiResponse(responseCode = "404", description = "Vaga não encontrada.")
+    })
+    public List<Estudante> verCandidatosDaVaga(@PathVariable Long id) {
+        // Pega o email da empresa logada a partir do contexto de segurança
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        Empresa empresaLogada = empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
+
+        // Busca a vaga no banco de dados.
+        VagaEstagio vaga = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada"));
+
+        // Valida se a empresa logada é a dona da vaga.
+        if (!vaga.getEmpresa().getId().equals(empresaLogada.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para ver os candidatos desta vaga.");
+        }
+
+        return vaga.getInscricoes().stream().map(inscricao -> inscricao.getEstudante()).collect(Collectors.toList());
     }
 }
