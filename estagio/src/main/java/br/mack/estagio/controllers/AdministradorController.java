@@ -16,13 +16,23 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.mack.estagio.entities.Administrador;
+import br.mack.estagio.dtos.VagasPorAreaDTO;
 import br.mack.estagio.repositories.AdministradorRepository;
+import br.mack.estagio.repositories.EmpresaRepository;
+import br.mack.estagio.repositories.EstudanteRepository;
+import br.mack.estagio.repositories.VagaEstagioRepository;
 
 @RestController
 @RequestMapping("/admins")
 public class AdministradorController {
     @Autowired
     private AdministradorRepository repository;
+    @Autowired
+    private EmpresaRepository empresaRepository;
+    @Autowired
+    private EstudanteRepository estudanteRepository;
+    @Autowired
+    private VagaEstagioRepository vagaEstagioRepository;
 
     //CREATE
     @PostMapping
@@ -82,5 +92,22 @@ public class AdministradorController {
         repository.deleteById(id);
     }
 
+    // REGRA 1: (Requisito 9) - Endpoint para o dashboard administrativo.
+    @GetMapping("/dashboard")
+    public Map<String, Long> getDashboardStats() {
+        Map<String, Long> stats = new HashMap<>();
+        stats.put("quantidadeEmpresas", empresaRepository.count());
+        stats.put("quantidadeEstudantes", estudanteRepository.count());
+        stats.put("totalVagas", vagaEstagioRepository.count());
+        stats.put("vagasAbertas", vagaEstagioRepository.countByStatus("ABERTA"));
+        stats.put("vagasEncerradas", vagaEstagioRepository.countByStatus("ENCERRADA"));
+        return stats;
+    }
+
+    // REGRA 2: (Requisito 9) - Endpoint para dados do gráfico de vagas por área.
+    @GetMapping("/dashboard/vagas-por-area")
+    public List<VagasPorAreaDTO> getVagasPorArea() {
+        return vagaEstagioRepository.countVagasByArea();
+    }
 
 }

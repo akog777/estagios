@@ -42,6 +42,17 @@ public class InscricaoController {
         VagaEstagio vaga = vagaEstagioRepository.findById(novaInscricao.getVagaEstagio().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga não encontrada"));
 
+        // REGRA 1: (Requisito 6) - Garante que a vaga não esteja encerrada.
+        // O status é comparado ignorando maiúsculas/minúsculas por segurança.
+        if ("ENCERRADA".equalsIgnoreCase(vaga.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Esta vaga não está mais aceitando inscrições.");
+        }
+
+        // REGRA 2: Impede que um estudante se inscreva duas vezes na mesma vaga.
+        if (repository.existsByEstudanteIdAndVagaEstagioId(estudante.getId(), vaga.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Você já se inscreveu para esta vaga.");
+        }
+
         novaInscricao.setEstudante(estudante);
         novaInscricao.setVagaEstagio(vaga);
         novaInscricao.setDataInscricao(new Date()); // Define a data da inscrição

@@ -16,5 +16,6 @@ public class Usuario {
     private Long id;
     private String login;
     private String senha;
+    private String role; // Ex: "ROLE_ADMIN", "ROLE_EMPRESA", "ROLE_ESTUDANTE"
 
 }

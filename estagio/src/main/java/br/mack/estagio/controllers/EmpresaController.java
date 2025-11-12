@@ -4,6 +4,8 @@ import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,13 +18,17 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.mack.estagio.entities.Empresa;
+import br.mack.estagio.entities.Inscricao;
 import br.mack.estagio.repositories.EmpresaRepository;
+import br.mack.estagio.repositories.InscricaoRepository;
 
 @RestController
 @RequestMapping("/empresas")
 public class EmpresaController {
     @Autowired
     private EmpresaRepository repository;
+    @Autowired
+    private InscricaoRepository inscricaoRepository;
 
     //CREATE
     @PostMapping
@@ -80,6 +86,21 @@ public class EmpresaController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada");
         }
         repository.deleteById(id);
+    }
+
+    // REGRA: (Requisito 7) - Endpoint para a empresa logada ver seus candidatos.
+    @GetMapping("/me/inscricoes")
+    public List<Inscricao> verMinhasInscricoes() {
+        // 1. Pega os dados do usuário autenticado.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+
+        // 2. Busca a entidade Empresa correspondente ao email do usuário logado.
+        Empresa empresaLogada = repository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nenhuma empresa encontrada para o usuário logado."));
+
+        // 3. Usa o ID da empresa para buscar todas as inscrições associadas a ela.
+        return inscricaoRepository.findByVagaEstagioEmpresaId(empresaLogada.getId());
     }
 
 
