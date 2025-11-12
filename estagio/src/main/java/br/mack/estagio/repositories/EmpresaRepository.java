@@ -1,11 +1,10 @@
 package br.mack.estagio.repositories;
 
-import java.util.List;
-
+import br.mack.estagio.entities.Empresa;
 import org.springframework.data.repository.CrudRepository;
 
-import br.mack.estagio.entities.Empresa;
+import java.util.Optional;
 
-public interface EmpresaRepository extends CrudRepository<Empresa, Long>{
-    List<Empresa> findByNome(String nome);
+public interface EmpresaRepository extends CrudRepository<Empresa, Long> {
+    Optional<Empresa> findByEmail(String email);
 }

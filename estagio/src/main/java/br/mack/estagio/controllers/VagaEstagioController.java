@@ -34,7 +34,7 @@ public class VagaEstagioController {
     @Operation(summary = "Cria uma nova vaga de estágio", description = "Cria uma nova vaga. O sistema associará a vaga à empresa autenticada. O status inicial será 'ABERTA'.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Vaga criada com sucesso"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA'.")
+            @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA'."),
             @ApiResponse(responseCode = "403", description = "Acesso negado. O usuário não tem o perfil 'EMPRESA' ou não corresponde a uma empresa cadastrada.")
     })
     public VagaEstagio criar(@RequestBody VagaEstagio novaVaga) {

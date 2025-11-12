@@ -13,6 +13,6 @@ import br.mack.estagio.dtos.VagasPorAreaDTO;
 public interface VagaEstagioRepository extends CrudRepository<VagaEstagio, Long> {
     Long countByStatus(String status);
     List<VagaEstagio> findDistinctByStatusAndListAreaInteresseIn(String status, List<AreaInteresse> areas);
-    @Query("SELECT new br.mack.estagio.dtos.VagasPorAreaDTO(ai.nome, COUNT(v)) FROM VagaEstagio v JOIN v.listAreaInteresse ai GROUP BY ai.nome")
+    @Query("SELECT new br.mack.estagio.dtos.VagasPorAreaDTO(ai.nome, COUNT(DISTINCT v)) FROM VagaEstagio v JOIN v.listAreaInteresse ai GROUP BY ai.nome")
     List<VagasPorAreaDTO> countVagasByArea();
 }

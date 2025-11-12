@@ -39,7 +39,9 @@ public class EmpresaController {
     @GetMapping
     public List<Empresa> lerTodasEmpresas(@RequestParam(name="nome", required=false) String nome) {
         if(nome == null){
-            return (List<Empresa>) repository.findAll();
+            List<Empresa> empresas = new ArrayList<>();
+            repository.findAll().forEach(empresas::add);
+            return empresas;
         }
         return repository.findByNome(nome);
     }
