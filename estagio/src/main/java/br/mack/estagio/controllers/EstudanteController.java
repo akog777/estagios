@@ -1,10 +1,13 @@
 package br.mack.estagio.controllers;
 
 import br.mack.estagio.entities.Estudante;
+import br.mack.estagio.entities.Usuario;
 import br.mack.estagio.repositories.EstudanteRepository;
+import br.mack.estagio.repositories.UsuarioRepository;
 import br.mack.estagio.entities.VagaEstagio;
 import br.mack.estagio.repositories.VagaEstagioRepository;
 import br.mack.estagio.services.PdfGenerationService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -12,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -27,20 +31,46 @@ public class EstudanteController {
     private EstudanteRepository estudanteRepository;
 
     @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
     private VagaEstagioRepository vagaEstagioRepository;
 
     @Autowired
     private PdfGenerationService pdfGenerationService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Cadastra um novo estudante", description = "Cria um novo estudante e um usuário associado para login. A senha deve ser informada no campo 'senha' do JSON.")
     public Estudante criarEstudante(@RequestBody Estudante estudante) {
         if (estudante.getNome() == null || estudante.getNome().isEmpty() ||
-            estudante.getCpf() == null || estudante.getCpf().isEmpty() ||
-            estudante.getEmail() == null || estudante.getEmail().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome, CPF e Email são obrigatórios");
+                estudante.getCpf() == null || estudante.getCpf().isEmpty() ||
+                estudante.getEmail() == null || estudante.getEmail().isEmpty() ||
+                estudante.getSenha() == null || estudante.getSenha().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome, CPF, Email e Senha são obrigatórios");
         }
-        return estudanteRepository.save(estudante);
+
+        // 1. Verifica se o e-mail (que será o login) já está em uso
+        usuarioRepository.findByEmail(estudante.getEmail()).ifPresent(user -> {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já está cadastrado.");
+        });
+
+        // 2. Cria e salva o novo usuário com perfil de ESTUDANTE
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setEmail(estudante.getEmail());
+        novoUsuario.setSenha(passwordEncoder.encode(estudante.getSenha())); // Criptografa a senha
+        novoUsuario.setRole("ROLE_ESTUDANTE");
+        usuarioRepository.save(novoUsuario);
+
+        // 3. Associa o usuário ao estudante e salva a entidade Estudante
+        estudante.setUsuario(novoUsuario);
+        Estudante estudanteSalvo = estudanteRepository.save(estudante);
+
+        estudanteSalvo.setSenha(null); // Garante que a senha não seja retornada na resposta
+        return estudanteSalvo;
     }
 
     @GetMapping

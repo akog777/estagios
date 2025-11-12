@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // API REST não guarda estado
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/usuarios", "/usuarios/login").permitAll() // 2. Libera os endpoints de criar usuário e login
+                        .requestMatchers(HttpMethod.POST, "/estudantes").permitAll() // Libera o registro de novos estudantes
                         .requestMatchers(HttpMethod.POST, "/empresas/registrar").permitAll() // Libera o registro de novas empresas
                         .requestMatchers(HttpMethod.GET, "/vagas", "/vagas/**").permitAll() // Libera a visualização de vagas para todos
                         

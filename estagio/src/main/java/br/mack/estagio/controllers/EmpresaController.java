@@ -1,9 +1,12 @@
 package br.mack.estagio.controllers;
 
 import br.mack.estagio.entities.Empresa;
+import br.mack.estagio.entities.Inscricao;
 import br.mack.estagio.entities.Usuario;
+import br.mack.estagio.entities.VagaEstagio;
 import br.mack.estagio.repositories.EmpresaRepository;
 import br.mack.estagio.repositories.UsuarioRepository;
+import br.mack.estagio.repositories.VagaEstagioRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/empresas")
@@ -26,6 +30,9 @@ public class EmpresaController {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private VagaEstagioRepository vagaEstagioRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -91,5 +98,21 @@ public class EmpresaController {
     public Empresa buscarPorId(@PathVariable Long id) {
         return empresaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empresa não encontrada"));
+    }
+
+    // REGRA: (Requisito 7) - Endpoint para a empresa logada ver todos os seus candidatos.
+    @GetMapping("/me/candidatos")
+    @Operation(summary = "Lista todos os candidatos inscritos nas vagas da empresa logada", description = "Retorna uma lista de todas as inscrições ativas para as vagas da empresa autenticada, ideal para o painel principal.")
+    public List<Inscricao> getMyCandidates() {
+        // 1. Reutiliza o método que busca a empresa logada
+        Empresa empresaLogada = getMyProfile();
+
+        // 2. Busca todas as vagas associadas a essa empresa
+        List<VagaEstagio> minhasVagas = vagaEstagioRepository.findByEmpresa(empresaLogada);
+
+        // 3. Usa Streams para extrair e juntar todas as inscrições de todas as vagas em uma única lista
+        return minhasVagas.stream()
+                .flatMap(vaga -> vaga.getInscricoes().stream())
+                .collect(Collectors.toList());
     }
 }

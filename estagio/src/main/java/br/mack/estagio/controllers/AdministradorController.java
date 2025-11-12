@@ -93,14 +93,20 @@ public class AdministradorController {
 
     // REGRA 1: (Requisito 9) - Endpoint para o dashboard administrativo.
     @GetMapping("/dashboard")
-    public Map<String, Long> getDashboardStats() {
-        Map<String, Long> stats = new HashMap<>();
+    public Map<String, Object> getDashboardStats() {
+        // 1. Coleta as estatísticas gerais
+        Map<String, Long> stats = new LinkedHashMap<>();
         stats.put("quantidadeEmpresas", empresaRepository.count());
         stats.put("quantidadeEstudantes", estudanteRepository.count());
         stats.put("totalVagas", vagaEstagioRepository.count());
         stats.put("vagasAbertas", vagaEstagioRepository.countByStatus("ABERTA"));
         stats.put("vagasEncerradas", vagaEstagioRepository.countByStatus("ENCERRADA"));
-        return stats;
+
+        // 2. Monta o objeto de resposta final
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("estatisticasGerais", stats);
+        response.put("vagasPorArea", vagaEstagioRepository.countVagasByArea()); // 3. Adiciona os dados para o gráfico
+        return response;
     }
 
 }
