@@ -20,6 +20,7 @@ import br.mack.estagio.repositories.AdministradorRepository;
 import br.mack.estagio.repositories.EmpresaRepository;
 import br.mack.estagio.repositories.EstudanteRepository;
 import br.mack.estagio.repositories.VagaEstagioRepository;
+import br.mack.estagio.dtos.VagasPorAreaDTO;
 
 @RestController
 @RequestMapping("/admins")
@@ -95,17 +96,22 @@ public class AdministradorController {
     @GetMapping("/dashboard")
     public Map<String, Object> getDashboardStats() {
         // 1. Coleta as estatísticas gerais
-        Map<String, Long> stats = new LinkedHashMap<>();
-        stats.put("quantidadeEmpresas", empresaRepository.count());
-        stats.put("quantidadeEstudantes", estudanteRepository.count());
-        stats.put("totalVagas", vagaEstagioRepository.count());
-        stats.put("vagasAbertas", vagaEstagioRepository.countByStatus("ABERTA"));
-        stats.put("vagasEncerradas", vagaEstagioRepository.countByStatus("ENCERRADA"));
-
-        // 2. Monta o objeto de resposta final
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("estatisticasGerais", stats);
-        response.put("vagasPorArea", vagaEstagioRepository.countVagasByArea()); // 3. Adiciona os dados para o gráfico
+        response.put("quantidadeEmpresas", empresaRepository.count());
+        response.put("quantidadeEstudantes", estudanteRepository.count());
+        response.put("vagasAbertas", vagaEstagioRepository.countByStatus("ABERTA"));
+        response.put("vagasEncerradas", vagaEstagioRepository.countByStatus("ENCERRADA"));
+
+        // 2. Adiciona os dados para o gráfico
+        List<VagasPorAreaDTO> vagasPorArea = vagaEstagioRepository.countVagasByArea();
+        List<Map<String, Object>> chartData = new ArrayList<>();
+        for (VagasPorAreaDTO dto : vagasPorArea) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("area", dto.nomeArea());
+            item.put("quantidade", dto.totalVagas());
+            chartData.add(item);
+        }
+        response.put("vagasPorArea", chartData);
         return response;
     }
 

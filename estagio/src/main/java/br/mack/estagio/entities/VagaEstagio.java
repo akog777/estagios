@@ -24,8 +24,6 @@ public class VagaEstagio {
     private String titulo;
     private String descricao;
     private String localizacao;
-    private Date dataInicio;
-    private Date dataFim;
     private String modalidade; // remoto/presencial/híbrido
     private int cargaHoraria;
     private String requisitos;

@@ -34,24 +34,7 @@ public class UsuarioController {
         return repository.save(novoUsuario);
     }
 
-    @PostMapping("/login")
-    public Usuario login(@RequestBody Usuario dadosLogin) {
-        // 1. Busca o usuário pelo login.
-        Usuario usuario = repository.findByEmail(dadosLogin.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas"));
 
-        // 2. Usa o passwordEncoder para verificar se a senha enviada corresponde à senha criptografada no banco.
-        if (passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
-            // 3. Se a senha corresponder, o login é bem-sucedido.
-            // Em uma aplicação real, aqui você geraria um Token (JWT).
-            // Por enquanto, vamos retornar o objeto do usuário sem a senha.
-            usuario.setSenha(null); // Nunca retorne a senha na resposta!
-            return usuario;
-        } else {
-            // 4. Se a senha não corresponder, lança um erro.
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
-        }
-    }
 
 
     @GetMapping

@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Optional;
 import java.util.Date;
 import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,14 +38,11 @@ public class InscricaoController {
     @Operation(summary = "Realiza a inscrição de um estudante em uma vaga", description = "Cria uma inscrição para o estudante autenticado na vaga especificada. O ID do estudante é obtido do token de segurança.")
     public Inscricao criar(@RequestBody Inscricao novaInscricao) {
         if (novaInscricao.getVagaEstagio() == null || novaInscricao.getVagaEstagio().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O ID da Vaga é obrigatório");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O ID da Vaga é obrigatório.");
         }
 
         // Pega o estudante logado a partir do contexto de segurança
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String emailUsuarioLogado = authentication.getName();
-        Estudante estudanteLogado = estudanteRepository.findByEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhum estudante."));
+        Estudante estudanteLogado = getEstudanteLogado();
 
         VagaEstagio vaga = vagaEstagioRepository.findById(novaInscricao.getVagaEstagio().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga não encontrada"));
@@ -97,11 +95,7 @@ public class InscricaoController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Cancela uma inscrição", description = "Permite que um estudante cancele sua própria inscrição em uma vaga.")
     public void apagar(@PathVariable Long id) {
-        // Pega o estudante logado a partir do contexto de segurança
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String emailUsuarioLogado = authentication.getName();
-        Estudante estudanteLogado = estudanteRepository.findByEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhum estudante."));
+        Estudante estudanteLogado = getEstudanteLogado();
 
         Inscricao inscricao = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada"));
@@ -111,5 +105,23 @@ public class InscricaoController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para cancelar esta inscrição.");
         }
         repository.deleteById(id);
+    }
+
+    // Endpoint para listar inscrições do estudante logado
+    @GetMapping("/me")
+    @Operation(summary = "Lista inscrições do estudante logado", description = "Retorna uma lista de todas as inscrições do estudante autenticado.")
+    public List<Inscricao> getMyInscricoes() {
+        Estudante estudanteLogado = getEstudanteLogado();
+        return repository.findByEstudanteId(estudanteLogado.getId());
+    }
+
+    private Estudante getEstudanteLogado() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário não autenticado.");
+        }
+        String emailUsuarioLogado = authentication.getName();
+        return estudanteRepository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Nenhum estudante encontrado para o usuário logado."));
     }
 }

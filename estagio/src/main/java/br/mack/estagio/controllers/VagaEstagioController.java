@@ -45,12 +45,8 @@ public class VagaEstagioController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O título da vaga é obrigatório.");
         }
 
-        // Pega o email da empresa logada a partir do contexto de segurança
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String emailUsuarioLogado = authentication.getName();
-        Empresa empresaLogada = empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
-
+        // Pega a empresa logada a partir do contexto de segurança
+        Empresa empresaLogada = getEmpresaLogada();
         // Associa a vaga à empresa que está autenticada, garantindo a segurança.
         novaVaga.setEmpresa(empresaLogada);
         // REGRA 1: (Requisito 5) - Garante que toda nova vaga comece com o status "ABERTA".
@@ -156,6 +152,9 @@ public class VagaEstagioController {
 
     private Empresa getEmpresaLogada() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário não autenticado.");
+        }
         String emailUsuarioLogado = authentication.getName();
         return empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
@@ -163,7 +162,7 @@ public class VagaEstagioController {
 
     private void validarDonoDaVaga(VagaEstagio vaga, Empresa empresaLogada) {
         if (!vaga.getEmpresa().getId().equals(empresaLogada.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para ver os candidatos desta vaga.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para modificar esta vaga.");
         }
     }
 }
