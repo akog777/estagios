@@ -79,8 +79,10 @@ public class VagaEstagioController {
     @Operation(summary = "Atualiza uma vaga existente", description = "Permite que a empresa dona da vaga atualize suas informações.")
     public VagaEstagio atualizar(@PathVariable Long id, @RequestBody VagaEstagio vagaAtualizada) {
         Optional<VagaEstagio> optional = repository.findById(id);
+        Empresa empresaLogada = getEmpresaLogada();
         if (optional.isPresent()) {
             VagaEstagio vaga = optional.get();
+            validarDonoDaVaga(vaga, empresaLogada);
             vaga.setTitulo(vagaAtualizada.getTitulo());
             vaga.setDescricao(vagaAtualizada.getDescricao());
             vaga.setLocalizacao(vagaAtualizada.getLocalizacao());
@@ -106,6 +108,9 @@ public class VagaEstagioController {
         // Busca a vaga no banco de dados. Se não encontrar, lança um erro 404.
         VagaEstagio vaga = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada"));
+        
+        Empresa empresaLogada = getEmpresaLogada();
+        validarDonoDaVaga(vaga, empresaLogada);
 
         // Altera o status da vaga para "ENCERRADA".
         vaga.setStatus("ENCERRADA");
@@ -118,9 +123,12 @@ public class VagaEstagioController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Deleta uma vaga", description = "Remove permanentemente o registro de uma vaga. Apenas para empresas.")
     public void apagar(@PathVariable Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada");
-        }
+        VagaEstagio vaga = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada"));
+
+        Empresa empresaLogada = getEmpresaLogada();
+        validarDonoDaVaga(vaga, empresaLogada);
+
         repository.deleteById(id);
     }
 
@@ -134,20 +142,28 @@ public class VagaEstagioController {
     })
     public List<Estudante> verCandidatosDaVaga(@PathVariable Long id) {
         // Pega o email da empresa logada a partir do contexto de segurança
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String emailUsuarioLogado = authentication.getName();
-        Empresa empresaLogada = empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
+        Empresa empresaLogada = getEmpresaLogada();
 
         // Busca a vaga no banco de dados.
         VagaEstagio vaga = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vaga de estágio não encontrada"));
 
         // Valida se a empresa logada é a dona da vaga.
+        validarDonoDaVaga(vaga, empresaLogada);
+
+        return vaga.getInscricoes().stream().map(inscricao -> inscricao.getEstudante()).collect(Collectors.toList());
+    }
+
+    private Empresa getEmpresaLogada() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        return empresaRepository.findByUsuarioEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhuma empresa."));
+    }
+
+    private void validarDonoDaVaga(VagaEstagio vaga, Empresa empresaLogada) {
         if (!vaga.getEmpresa().getId().equals(empresaLogada.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para ver os candidatos desta vaga.");
         }
-
-        return vaga.getInscricoes().stream().map(inscricao -> inscricao.getEstudante()).collect(Collectors.toList());
     }
 }

@@ -97,8 +97,18 @@ public class InscricaoController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Cancela uma inscrição", description = "Permite que um estudante cancele sua própria inscrição em uma vaga.")
     public void apagar(@PathVariable Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada");
+        // Pega o estudante logado a partir do contexto de segurança
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        Estudante estudanteLogado = estudanteRepository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário logado não corresponde a nenhum estudante."));
+
+        Inscricao inscricao = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inscrição não encontrada"));
+
+        // Valida se o estudante logado é o dono da inscrição
+        if (!inscricao.getEstudante().getId().equals(estudanteLogado.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem permissão para cancelar esta inscrição.");
         }
         repository.deleteById(id);
     }

@@ -98,25 +98,27 @@ public class EstudanteController {
 
     @PutMapping("/{id}")
     public Estudante atualizarEstudante(@PathVariable Long id, @RequestBody Estudante estudanteAtualizado) {
-        Optional<Estudante> optional = estudanteRepository.findById(id);
-        if (optional.isPresent()) {
-            Estudante estudante = optional.get();
-            estudante.setNome(estudanteAtualizado.getNome());
-            estudante.setCpf(estudanteAtualizado.getCpf());
-            estudante.setEmail(estudanteAtualizado.getEmail());
-            estudante.setCurso(estudanteAtualizado.getCurso());
-            estudante.setTelefone(estudanteAtualizado.getTelefone());
-            estudante.setListAreaInteresse(estudanteAtualizado.getListAreaInteresse());
-            return estudanteRepository.save(estudante);
+        Estudante estudanteLogado = getEstudanteLogado();
+        if (!estudanteLogado.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode atualizar seu próprio perfil.");
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Estudante não encontrado");
+
+        // Atualiza os dados do estudante logado com as informações recebidas
+        estudanteLogado.setNome(estudanteAtualizado.getNome());
+        estudanteLogado.setCpf(estudanteAtualizado.getCpf());
+        estudanteLogado.setEmail(estudanteAtualizado.getEmail());
+        estudanteLogado.setCurso(estudanteAtualizado.getCurso());
+        estudanteLogado.setTelefone(estudanteAtualizado.getTelefone());
+        estudanteLogado.setListAreaInteresse(estudanteAtualizado.getListAreaInteresse());
+        return estudanteRepository.save(estudanteLogado);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletarEstudante(@PathVariable Long id) {
-        if (!estudanteRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Estudante não encontrado");
+        Estudante estudanteLogado = getEstudanteLogado();
+        if (!estudanteLogado.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode deletar seu próprio perfil.");
         }
         estudanteRepository.deleteById(id);
     }
@@ -124,13 +126,7 @@ public class EstudanteController {
     // REGRA: (Requisito 7) - Endpoint para o estudante logado ver vagas recomendadas.
     @GetMapping("/me/vagas-recomendadas")
     public List<VagaEstagio> verVagasRecomendadas() {
-        // 1. Pega os dados do usuário autenticado.
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String emailUsuarioLogado = authentication.getName();
-
-        // 2. Busca a entidade Estudante correspondente ao email do usuário logado.
-        Estudante estudanteLogado = estudanteRepository.findByEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nenhum estudante encontrado para o usuário logado."));
+        Estudante estudanteLogado = getEstudanteLogado();
 
         // 3. Se o estudante não tiver áreas de interesse, retorna uma lista vazia.
         if (estudanteLogado.getListAreaInteresse() == null || estudanteLogado.getListAreaInteresse().isEmpty()) {
@@ -158,5 +154,12 @@ public class EstudanteController {
         headers.setContentDispositionFormData("filename", "curriculo-" + estudante.getNome().replace(" ", "_") + ".pdf");
 
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    }
+
+    private Estudante getEstudanteLogado() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String emailUsuarioLogado = authentication.getName();
+        return estudanteRepository.findByEmail(emailUsuarioLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Nenhum estudante encontrado para o usuário logado."));
     }
 }
